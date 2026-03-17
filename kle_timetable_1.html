@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="KLE Timetable">
+<title>KLE Timetable</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f0f4f8; min-height: 100vh; }
+  .header { background: #185FA5; color: #fff; padding: 20px 16px 16px; }
+  .header .date { font-size: 12px; opacity: 0.75; margin-bottom: 3px; }
+  .header .dayname { font-size: 26px; font-weight: 600; }
+  .header .sub { font-size: 11px; opacity: 0.65; margin-top: 4px; }
+  .tabs { display: flex; background: #fff; border-bottom: 1px solid #e5e7eb; overflow-x: auto; scrollbar-width: none; position: sticky; top: 0; z-index: 10; }
+  .tabs::-webkit-scrollbar { display: none; }
+  .tab { flex: 1; min-width: 46px; padding: 12px 4px 10px; text-align: center; font-size: 12px; color: #6b7280; cursor: pointer; border-bottom: 2px solid transparent; user-select: none; }
+  .tab.active { color: #185FA5; border-bottom: 2px solid #185FA5; font-weight: 600; }
+  .schedule { padding: 14px 12px 40px; }
+  .slot { display: flex; gap: 10px; margin-bottom: 10px; }
+  .tc { width: 68px; flex-shrink: 0; text-align: right; padding-top: 5px; font-size: 10px; color: #9ca3af; line-height: 1.5; white-space: pre-line; }
+  .card { flex: 1; border-radius: 10px; padding: 10px 13px; border-left: 3px solid; }
+  .card.lec { background: #EFF6FF; border-color: #185FA5; }
+  .card.lab { background: #ECFDF5; border-color: #059669; }
+  .card.brk { background: #f9fafb; border-color: #e5e7eb; }
+  .cn { font-size: 14px; font-weight: 600; color: #111827; line-height: 1.3; }
+  .cc { font-size: 11px; color: #6b7280; margin-top: 2px; }
+  .cf { font-size: 11px; color: #6b7280; margin-top: 2px; }
+  .badge { display: inline-block; font-size: 10px; padding: 2px 7px; border-radius: 4px; margin-top: 5px; font-weight: 600; }
+  .bl { background: #DBEAFE; color: #1e40af; }
+  .blab { background: #D1FAE5; color: #065f46; }
+  .brk-txt { font-size: 12px; color: #9ca3af; }
+  .now-row { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; }
+  .now-dot { width: 8px; height: 8px; border-radius: 50%; background: #ef4444; flex-shrink: 0; }
+  .now-line { flex: 1; height: 1px; background: #ef4444; opacity: 0.4; }
+  .now-txt { font-size: 10px; color: #dc2626; font-weight: 600; }
+  .empty { text-align: center; padding: 3rem 1rem; color: #9ca3af; font-size: 14px; }
+  .current-class { background: #185FA5 !important; border-color: #0c44a0 !important; }
+  .current-class .cn, .current-class .cc, .current-class .cf { color: #fff !important; }
+  .current-class .badge { background: rgba(255,255,255,0.25) !important; color: #fff !important; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="date" id="hdr-date"></div>
+  <div class="dayname" id="hdr-day"></div>
+  <div class="sub">KLE Tech · IV Sem B.E. A Div · MB107</div>
+</div>
+<div class="tabs" id="tabs"></div>
+<div class="schedule" id="schedule"></div>
+
+<script>
+const DAYS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+const FULL = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+
+const TT = {
+  Mon:[
+    {t:'9:00–10:00',  n:'Software Engineering',           c:'25ECSC213', f:'Dr. Santosh P',           type:'lec', s:540,  e:600},
+    {t:'10:00–11:00', n:'OOP with Java',                  c:'25ECSC204', f:'Mr. Gambhir Halse',       type:'lec', s:600,  e:660},
+    {t:'11:00–11:30', n:'Break',                          c:'',          f:'',                         type:'brk', s:660,  e:690},
+    {t:'11:30–12:30', n:'Computer Networks',              c:'25ECSC211', f:'Mr. U. V. Somanatti',     type:'lec', s:690,  e:750},
+    {t:'12:30–1:30',  n:'Computer Networks',              c:'25ECSC211', f:'Mr. U. V. Somanatti',     type:'lec', s:750,  e:810},
+    {t:'1:30–2:30',   n:'Lunch Break',                   c:'',          f:'',                         type:'brk', s:810,  e:870},
+    {t:'2:30–4:30',   n:'OOP Lab (Lab3)',                 c:'24ECSP203', f:'Mr. Gambhir Halse / Supriya B / Rutika N', type:'lab', s:870, e:990},
+  ],
+  Tue:[
+    {t:'9:00–1:00',   n:'Web Technologies Lab',           c:'25ECSP207', f:'Mrs. Priyanka Patil / Suresh Aralelimath / Sakshi S', type:'lab', s:540, e:780},
+    {t:'1:30–2:30',   n:'Lunch Break',                   c:'',          f:'',                         type:'brk', s:810,  e:870},
+    {t:'2:30–3:30',   n:'Linear Algebra',                 c:'25EMAB224', f:'Dr. Shobha Patil',         type:'lec', s:870,  e:930},
+    {t:'3:30–4:30',   n:'Linear Algebra (contd.)',        c:'25EMAB224', f:'Dr. Shobha Patil',         type:'lec', s:930,  e:990},
+  ],
+  Wed:[
+    {t:'9:00–10:00',  n:'Multivariable Calculus & Opt.',  c:'25EMAB224', f:'Dr. B. S. Durgi',          type:'lec', s:540,  e:600},
+    {t:'10:30–1:30',  n:'CN Lab',                         c:'25ECSP208', f:'Mr. U. V. Somanatti / Madhurani S / Akshata P', type:'lab', s:630, e:810},
+    {t:'1:30–2:30',   n:'Lunch Break',                   c:'',          f:'',                         type:'brk', s:810,  e:870},
+    {t:'2:30–4:30',   n:'Machine Learning Lab',           c:'25ECSC212', f:'Dr. Satish Bhojannawar / Dr. Priyanka G / Sakshi S', type:'lab', s:870, e:990},
+  ],
+  Thu:[
+    {t:'9:00–10:00',  n:'OOP with Java',                  c:'25ECSC204', f:'Mr. Gambhir Halse',       type:'lec', s:540,  e:600},
+    {t:'10:00–11:00', n:'Multivariable Calculus & Opt.',  c:'25EMAB224', f:'Dr. B. S. Durgi',          type:'lec', s:600,  e:660},
+    {t:'11:00–11:30', n:'Break',                          c:'',          f:'',                         type:'brk', s:660,  e:690},
+    {t:'11:30–12:30', n:'Computer Networks',              c:'25ECSC211', f:'Mr. U. V. Somanatti',     type:'lec', s:690,  e:750},
+    {t:'12:30–1:30',  n:'Computer Networks',              c:'25ECSC211', f:'Mr. U. V. Somanatti',     type:'lec', s:750,  e:810},
+    {t:'1:30–2:30',   n:'Lunch Break',                   c:'',          f:'',                         type:'brk', s:810,  e:870},
+    {t:'2:30–3:30',   n:'Software Engineering',           c:'25ECSC213', f:'Dr. Santosh P',           type:'lec', s:870,  e:930},
+    {t:'3:30–5:30',   n:'Linear Algebra',                 c:'25EMAB224', f:'Dr. Shobha Patil / Soumya M', type:'lec', s:930, e:1050},
+  ],
+  Fri:[
+    {t:'9:00–10:00',  n:'Machine Learning Lab',           c:'25ECSC212', f:'Dr. Satish B',             type:'lab', s:540,  e:600},
+    {t:'10:00–11:00', n:'Machine Learning Lab (contd.)',  c:'25ECSC212', f:'Dr. Satish B',             type:'lab', s:600,  e:660},
+    {t:'11:00–11:30', n:'Break',                          c:'',          f:'',                         type:'brk', s:660,  e:690},
+    {t:'11:30–12:30', n:'Software Engineering',           c:'25ECSC213', f:'Dr. Santosh P',           type:'lec', s:690,  e:750},
+    {t:'12:30–1:30',  n:'OOP with Java',                  c:'25ECSC204', f:'Mr. Gambhir Halse',       type:'lec', s:750,  e:810},
+    {t:'1:30–2:30',   n:'Lunch Break',                   c:'',          f:'',                         type:'brk', s:810,  e:870},
+    {t:'2:30–3:30',   n:'Problem Solving & Analysis',     c:'24EHSA202', f:'Mrs. Priyanka Patil',      type:'lec', s:870,  e:930},
+  ],
+  Sat:[
+    {t:'9:00–10:00',  n:'Multivariable Calculus & Opt.',  c:'25EMAB224', f:'Dr. B. S. Durgi',          type:'lec', s:540,  e:600},
+    {t:'10:00–11:00', n:'Machine Learning',               c:'25ECSC212', f:'Dr. Satish B',             type:'lec', s:600,  e:660},
+    {t:'11:00–11:30', n:'Break',                          c:'',          f:'',                         type:'brk', s:660,  e:690},
+    {t:'11:30–12:30', n:'Machine Learning',               c:'25ECSC212', f:'Dr. Satish B',             type:'lec', s:690,  e:750},
+    {t:'12:30–1:30',  n:'OOP with Java',                  c:'25ECSC204', f:'Mr. Gambhir Halse',       type:'lec', s:750,  e:810},
+  ],
+  Sun:[],
+};
+
+const dayKeys = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+
+function render(dk) {
+  const now = new Date();
+  const todayKey = DAYS[now.getDay()];
+  const nowMins = now.getHours() * 60 + now.getMinutes();
+
+  document.getElementById('hdr-date').textContent = now.toLocaleDateString('en-IN', {weekday:'long', day:'numeric', month:'long', year:'numeric'});
+  document.getElementById('hdr-day').textContent = dk === todayKey ? 'Today' : FULL[DAYS.indexOf(dk)];
+
+  const tabs = document.getElementById('tabs');
+  tabs.innerHTML = '';
+  dayKeys.forEach(d => {
+    const t = document.createElement('div');
+    t.className = 'tab' + (d === dk ? ' active' : '');
+    t.textContent = d;
+    t.onclick = () => render(d);
+    tabs.appendChild(t);
+  });
+
+  const slots = TT[dk] || [];
+  const sc = document.getElementById('schedule');
+
+  if (!slots.length) {
+    sc.innerHTML = '<div class="empty">No classes today — enjoy your Sunday!</div>';
+    return;
+  }
+
+  let html = '', nowDone = false;
+  slots.forEach(s => {
+    if (dk === todayKey && !nowDone && nowMins < s.s) {
+      html += `<div class="now-row"><div class="now-dot"></div><div class="now-line"></div><div class="now-txt">NOW</div></div>`;
+      nowDone = true;
+    }
+    const isCurrent = dk === todayKey && nowMins >= s.s && nowMins < s.e && s.type !== 'brk';
+    if (s.type === 'brk') {
+      html += `<div class="slot"><div class="tc">${s.t}</div><div class="card brk"><span class="brk-txt">${s.n}</span></div></div>`;
+    } else {
+      const badge = s.type === 'lab' ? '<span class="badge blab">Lab</span>' : '<span class="badge bl">Lecture</span>';
+      html += `<div class="slot"><div class="tc">${s.t}</div><div class="card ${s.type}${isCurrent ? ' current-class' : ''}"><div class="cn">${s.n}</div><div class="cc">${s.c}</div><div class="cf">${s.f}</div>${badge}</div></div>`;
+    }
+  });
+  if (dk === todayKey && !nowDone) {
+    html = `<div class="now-row"><div class="now-dot"></div><div class="now-line"></div><div class="now-txt">NOW</div></div>` + html;
+  }
+  sc.innerHTML = html;
+}
+
+const todayKey = DAYS[new Date().getDay()];
+render(dayKeys.includes(todayKey) ? todayKey : 'Mon');
+</script>
+</body>
+</html>
